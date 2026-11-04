@@ -8,8 +8,10 @@ const FEATURES = [
   { title: 'Ready for the 2026 tax rules', body: '7.5% VAT returns and the 0% small-company check, under the Nigeria Tax Act 2025.', Badge: BadgeTaxSeal },
 ]
 
-export function Welcome({ onStart }: { onStart: (name: string, sample: boolean) => Promise<void> }) {
+export function Welcome({ onStart }: { onStart: (name: string, sample: boolean, pin?: string) => Promise<void> }) {
   const [name, setName] = useState('')
+  const [pin, setPin] = useState('')
+  const pinOk = pin === '' || /^\d{4,6}$/.test(pin)
   const [busy, setBusy] = useState<'empty' | 'sample' | null>(null)
   const [online, setOnline] = useState(navigator.onLine)
 
@@ -24,8 +26,9 @@ export function Welcome({ onStart }: { onStart: (name: string, sample: boolean) 
   }, [])
 
   async function go(sample: boolean) {
+    if (!pinOk) return
     setBusy(sample ? 'sample' : 'empty')
-    await onStart(name.trim() || (sample ? "Mama Ada's Provisions" : 'My shop'), sample)
+    await onStart(name.trim() || (sample ? "Mama Ada's Provisions" : 'My shop'), sample, pin || undefined)
   }
 
   return (
@@ -60,7 +63,7 @@ export function Welcome({ onStart }: { onStart: (name: string, sample: boolean) 
           <h2 id="start-h" className="font-serif text-3xl text-on-page">
             Open your book
           </h2>
-          <p className="mt-1 text-on-page-mute">It takes ten seconds. No account, no sign-up.</p>
+          <p className="mt-1 text-on-page-mute">It takes ten seconds. No account needed: add a PIN and it becomes your login.</p>
 
           <label className="mt-6 block">
             <span className="label">Business name</span>
@@ -72,6 +75,22 @@ export function Welcome({ onStart }: { onStart: (name: string, sample: boolean) 
               onKeyDown={(e) => e.key === 'Enter' && go(false)}
               maxLength={60}
             />
+          </label>
+
+          <label className="mt-4 block">
+            <span className="label">PIN to log in (optional, 4 to 6 digits)</span>
+            <input
+              className="input-emboss num mt-2 tracking-[.4em]"
+              type="password"
+              inputMode="numeric"
+              autoComplete="new-password"
+              placeholder="••••"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+              aria-invalid={!pinOk}
+            />
+            {!pinOk && <span className="mt-1 block text-sm text-crimson">Use 4 to 6 digits, or leave it empty.</span>}
           </label>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

@@ -3,7 +3,7 @@
 [![CI](https://github.com/peterafolabi-dev/oja-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/peterafolabi-dev/oja-ledger/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4)
-![Tests](https://img.shields.io/badge/tests-24%20incl.%20property--based-1F8A4C)
+![Tests](https://img.shields.io/badge/tests-27%20incl.%20property--based-1F8A4C)
 ![Offline](https://img.shields.io/badge/works-offline-14513A)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
@@ -35,6 +35,7 @@ Oja Ledger is built for the person at the stall:
 | **Tamper-evident** | Changing any past entry is detectable. | Each entry stores a **SHA-256 hash** of its contents plus the previous entry's hash, a hash chain. The app re-verifies the whole chain on open and shows a short fingerprint you can give your accountant. |
 | **Append-only** | Nothing is edited or deleted. | Mistakes are fixed with **reversal entries**. A property test proves a reversal returns every account exactly to where it was. |
 | **Atomic saves** | A crash mid-save never leaves half an entry. | Entries and the chain head are written in one IndexedDB transaction, tested with `fake-indexeddb`. |
+| **PIN login and lock** | Only the owner opens the book; “Lock” logs out, and it re-locks after 5 minutes away. | The PIN is never stored: a salted **PBKDF2-SHA-256** hash (150,000 iterations) is checked with a constant-time compare, with a cooldown after 5 wrong tries. |
 | **Offline-first** | Opens and saves with no network. | A service worker caches the app shell; the book is in IndexedDB, not on a server. |
 | **2026 tax rules** | 7.5% VAT returns due by the 21st, and the small-company test (≤ ₦50m turnover, ≤ ₦250m fixed assets → 0% CIT) under the Nigeria Tax Act 2025. | Rates live in one file (`src/core/tax.ts`) with tests for the edge cases. |
 
@@ -84,7 +85,7 @@ src/
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 24 tests, including the property-based ones
+npm test           # 27 tests, including the property-based ones
 npm run build      # typecheck + production build
 ```
 

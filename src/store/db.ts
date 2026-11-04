@@ -2,6 +2,7 @@
 // works with no network at all. Entries are only ever added, never updated.
 
 import type { Entry } from '../core/ledger'
+import type { PinRecord } from '../core/pin'
 
 const DB_NAME = 'oja-ledger'
 const DB_VERSION = 1
@@ -11,6 +12,8 @@ export interface Meta {
   /** Hash of the newest entry and the entry count, so deleting the latest entry is also detectable. */
   headHash: string
   count: number
+  /** Optional PIN lock (hashed). */
+  pin?: PinRecord
 }
 
 function open(): Promise<IDBDatabase> {

@@ -65,6 +65,7 @@ export default {
           '100%': { transform: 'rotate(-9deg) scale(1)', opacity: '0' },
         },
         sheen: { from: { backgroundPosition: '0% 50%' }, to: { backgroundPosition: '200% 50%' } },
+        shake: { '0%,100%': { transform: 'none' }, '20%,60%': { transform: 'translateX(-8px)' }, '40%,80%': { transform: 'translateX(8px)' } },
       },
       animation: {
         rise: 'rise .28s cubic-bezier(.2,.8,.2,1)',

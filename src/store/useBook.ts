@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { type ChainCheck, type Entry, type EntryDraft, reversalOf, seal, verifyChain } from '../core/ledger'
+import { type PinRecord, checkPin, makePin } from '../core/pin'
 import { sampleShop } from '../core/sample'
 import * as db from './db'
 
@@ -53,6 +54,7 @@ export function useBook() {
         added.push(e)
       }
       const meta: db.Meta = {
+        ...s.meta,
         businessName: businessName ?? s.meta?.businessName ?? 'My shop',
         headHash: journal.at(-1)?.hash ?? '0'.repeat(64),
         count: journal.length,
@@ -64,15 +66,16 @@ export function useBook() {
     [s.entries, s.meta],
   )
 
-  const start = useCallback(async (businessName: string, withSample: boolean) => {
+  const start = useCallback(async (businessName: string, withSample: boolean, pinCode?: string) => {
     await db.wipe()
-    const meta: db.Meta = { businessName, headHash: '0'.repeat(64), count: 0 }
+    const pin: PinRecord | undefined = pinCode ? await makePin(pinCode) : undefined
+    const meta: db.Meta = { businessName, headHash: '0'.repeat(64), count: 0, ...(pin ? { pin } : {}) }
     await db.saveMeta(meta)
     set({ ready: true, entries: [], meta, check: { ok: true, checked: 0 }, error: null })
     if (withSample) {
       const journal: Entry[] = []
       for (const d of sampleShop(todayIso())) journal.push(await seal(journal, d))
-      const m: db.Meta = { businessName, headHash: journal.at(-1)!.hash, count: journal.length }
+      const m: db.Meta = { ...meta, headHash: journal.at(-1)!.hash, count: journal.length }
       await db.append(journal, m)
       set({ ready: true, entries: journal, meta: m, check: { ok: true, checked: journal.length }, error: null })
     }
@@ -94,7 +97,22 @@ export function useBook() {
     set({ ready: true, entries: [], meta: undefined, check: null, error: null })
   }, [])
 
-  return { ...s, post, start, reverse, recheck, reset }
+  /** Sets, changes or (with null) removes the PIN. */
+  const setPin = useCallback(
+    async (pinCode: string | null) => {
+      if (!s.meta) return
+      const { pin: _old, ...rest } = s.meta
+      void _old
+      const meta: db.Meta = pinCode ? { ...rest, pin: await makePin(pinCode) } : rest
+      await db.saveMeta(meta)
+      set((p) => ({ ...p, meta }))
+    },
+    [s.meta],
+  )
+
+  const unlock = useCallback(async (pinCode: string) => (s.meta?.pin ? checkPin(pinCode, s.meta.pin) : true), [s.meta])
+
+  return { ...s, post, start, reverse, recheck, reset, setPin, unlock }
 }
 
 export type Book = ReturnType<typeof useBook>

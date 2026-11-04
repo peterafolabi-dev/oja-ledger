@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EntryDraft } from '../core/ledger'
 import { type Book, useBook } from '../store/useBook'
 import { entryAmount, naira } from './format'
-import { IconBolt, IconBook, IconChevron, IconGear, IconReports, IconSeal, IconToday } from './icons'
+import { IconBolt, IconBook, IconChevron, IconGear, IconLock, IconReports, IconSeal, IconToday } from './icons'
+import { LockScreen } from './LockScreen'
+import { PIN_RE } from '../core/pin'
 import { BookPage, ReportsPage, SealCard, TodayPage } from './pages'
 import { QuickSale } from './QuickSale'
 import { RecordSheet } from './RecordSheet'
@@ -32,9 +34,30 @@ function useOnline() {
   return online
 }
 
+const SESSION_KEY = 'oja-unlocked'
+const AUTO_LOCK_MS = 5 * 60_000 // lock again after 5 minutes away from the app
+
+function sessionUnlocked(): boolean {
+  try {
+    return sessionStorage.getItem(SESSION_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function rememberUnlocked(on: boolean) {
+  try {
+    if (on) sessionStorage.setItem(SESSION_KEY, '1')
+    else sessionStorage.removeItem(SESSION_KEY)
+  } catch {
+    /* storage blocked: the lock just won't survive a reload */
+  }
+}
+
 export default function App() {
   const book = useBook()
   const online = useOnline()
+  const [unlocked, setUnlocked] = useState(sessionUnlocked)
+  const [notice, setNotice] = useState('')
   const [page, setPage] = useState<Page>('today')
   const [sheet, setSheet] = useState<'quick' | 'full' | null>(null)
   const [stamp, setStamp] = useState<{ seq: number; amount: string; hash: string } | null>(null)
@@ -51,6 +74,25 @@ export default function App() {
     [book],
   )
 
+  const hasPin = Boolean(book.meta?.pin)
+  const lock = useCallback(() => {
+    rememberUnlocked(false)
+    setUnlocked(false)
+    setSheet(null)
+  }, [])
+
+  // auto-lock: if the app was in the background for a while, ask for the PIN again
+  useEffect(() => {
+    if (!hasPin) return
+    let hiddenAt = 0
+    const onVis = () => {
+      if (document.hidden) hiddenAt = Date.now()
+      else if (hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS) lock()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [hasPin, lock])
+
   if (!book.ready) return null
   if (book.error)
     return (
@@ -58,7 +100,34 @@ export default function App() {
         <p className="page-card p-6 text-crimson">{book.error}</p>
       </main>
     )
-  if (!book.meta) return <Welcome onStart={book.start} />
+  if (!book.meta)
+    return (
+      <Welcome
+        onStart={async (name, sample, pin) => {
+          await book.start(name, sample, pin)
+          rememberUnlocked(true)
+          setUnlocked(true)
+          setPage('today')
+        }}
+      />
+    )
+  if (hasPin && !unlocked)
+    return (
+      <LockScreen
+        businessName={book.meta.businessName}
+        onUnlock={async (pin) => {
+          const ok = await book.unlock(pin)
+          if (ok) {
+            rememberUnlocked(true)
+            setUnlocked(true)
+          }
+          return ok
+        }}
+        onForgot={() => {
+          if (window.confirm('The PIN cannot be recovered: it is never stored, only a scrambled check of it.\n\nErase this book on this device and start again? Everything recorded on this device will be lost.')) void book.reset()
+        }}
+      />
+    )
 
   const go = (p: Page) => {
     setPage(p)
@@ -97,6 +166,20 @@ export default function App() {
             >
               <IconGear className="h-5 w-5" />
             </button>
+            <button
+              onClick={() => {
+                if (hasPin) lock()
+                else {
+                  setNotice('Set a PIN first. Then “Lock” logs you out and the PIN logs you back in.')
+                  go('settings')
+                }
+              }}
+              className="flex h-10 items-center gap-2 rounded-full border border-brass/50 bg-brass/10 px-3.5 text-sm font-semibold text-on-shell transition hover:bg-brass/20 active:scale-95"
+              aria-label={hasPin ? 'Lock the book (log out)' : 'Set a PIN to lock the book'}
+            >
+              <IconLock className="h-4 w-4 text-brass" />
+              <span className="hidden sm:inline">{hasPin ? 'Lock' : 'Set PIN'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -105,7 +188,7 @@ export default function App() {
         {page === 'today' && <TodayPage book={book} onQuickSale={() => setSheet('quick')} onOpenBook={() => go('book')} />}
         {page === 'book' && <BookPage book={book} />}
         {page === 'reports' && <ReportsPage book={book} />}
-        {page === 'settings' && <SettingsPage book={book} />}
+        {page === 'settings' && <SettingsPage book={book} notice={notice} onDone={() => setNotice('')} />}
       </main>
 
       {/* floating quick-sale bar */}
@@ -173,6 +256,7 @@ function ShopSwitcher({ book }: { book: Book }) {
     setOpen(false)
     if (sample) await book.start("Mama Ada's Provisions", true)
     else await book.reset()
+    rememberUnlocked(false)
   }
 
   return (
@@ -201,7 +285,67 @@ function ShopSwitcher({ book }: { book: Book }) {
   )
 }
 
-function SettingsPage({ book }: { book: Book }) {
+function PinCard({ book, notice, onDone }: { book: Book; notice: string; onDone: () => void }) {
+  const has = Boolean(book.meta?.pin)
+  const [a, setA] = useState('')
+  const [b, setB] = useState('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    if (!PIN_RE.test(a)) return setMsg({ ok: false, text: 'Use 4 to 6 digits.' })
+    if (a !== b) return setMsg({ ok: false, text: 'The two PINs don’t match.' })
+    setBusy(true)
+    await book.setPin(a)
+    rememberUnlocked(true)
+    setBusy(false)
+    setA('')
+    setB('')
+    onDone()
+    setMsg({ ok: true, text: has ? 'PIN changed.' : 'PIN set. Use “Lock” in the top bar to log out.' })
+  }
+
+  return (
+    <section className="page-card p-6" id="pin">
+      <h2 className="font-serif text-2xl">Log in with a PIN</h2>
+      <p className="mt-1 text-sm text-on-page-mute">
+        {has ? 'Your book asks for a PIN when you open it. “Lock” in the top bar logs you out, and it locks itself after 5 minutes away.' : 'Add a 4 to 6 digit PIN so only you can open this book. “Lock” in the top bar then logs you out.'}
+      </p>
+      {notice && <p className="mt-3 rounded-xl bg-amber/10 px-3 py-2 text-sm text-amber ring-1 ring-amber/30">{notice}</p>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="label">{has ? 'New PIN' : 'PIN'}</span>
+          <input className="input-emboss num tracking-[.4em]" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} value={a} onChange={(e) => setA(e.target.value.replace(/\D/g, ''))} />
+        </label>
+        <label className="grid gap-2">
+          <span className="label">Type it again</span>
+          <input className="input-emboss num tracking-[.4em]" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} value={b} onChange={(e) => setB(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => e.key === 'Enter' && save()} />
+        </label>
+      </div>
+      {msg && <p className={`mt-3 text-sm ${msg.ok ? 'text-emerald' : 'text-crimson'}`}>{msg.text}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button className="btn-cta" onClick={save} disabled={busy || !a}>
+          {has ? 'Change PIN' : 'Set PIN'}
+        </button>
+        {has && (
+          <button
+            className="btn-danger"
+            onClick={async () => {
+              if (!window.confirm('Remove the PIN? Anyone with this phone will be able to open the book.')) return
+              await book.setPin(null)
+              setMsg({ ok: true, text: 'PIN removed.' })
+            }}
+          >
+            Remove PIN
+          </button>
+        )}
+      </div>
+      <p className="mt-3 text-xs text-on-page-mute">The PIN is never stored, only a salted PBKDF2 hash of it. It keeps others out of the app; the data itself stays on this device.</p>
+    </section>
+  )
+}
+
+function SettingsPage({ book, notice, onDone }: { book: Book; notice: string; onDone: () => void }) {
   const [theme, setT] = useState<Theme>(getTheme())
   const choose = (t: Theme) => {
     setTheme(t)
@@ -227,6 +371,7 @@ function SettingsPage({ book }: { book: Book }) {
           </section>
         </div>
         <div className="grid content-start gap-4">
+          <PinCard book={book} notice={notice} onDone={onDone} />
           <section className="page-card p-6">
             <h2 className="font-serif text-2xl">Appearance</h2>
             <p className="mt-1 text-sm text-on-page-mute">Leather is the classic look. Parchment is easier in bright sunlight.</p>
