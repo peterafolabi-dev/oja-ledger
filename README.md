@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/peterafolabi-dev/oja-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/peterafolabi-dev/oja-ledger/actions/workflows/ci.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
+![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4)
 ![Tests](https://img.shields.io/badge/tests-24%20incl.%20property--based-1F8A4C)
 ![Offline](https://img.shields.io/badge/works-offline-14513A)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -38,10 +39,15 @@ Oja Ledger is built for the person at the stall:
 | **2026 tax rules** | 7.5% VAT returns due by the 21st, and the small-company test (≤ ₦50m turnover, ≤ ₦250m fixed assets → 0% CIT) under the Nigeria Tax Act 2025. | Rates live in one file (`src/core/tax.ts`) with tests for the edge cases. |
 
 <p>
-  <img src="docs/screens/record-mobile.jpg" alt="Recording a sale on a phone" width="300">
+  <img src="docs/screens/record-mobile.jpg" alt="Two-tap quick sale with a big keypad" width="260">
   &nbsp;
-  <img src="docs/screens/sealed.jpg" alt="An entry being sealed" width="520">
+  <img src="docs/screens/light-mobile.jpg" alt="Parchment (light) theme on a phone" width="260">
 </p>
+
+![The journal as a passbook, with each entry's SHA-256 seal](docs/screens/journal.jpg)
+
+### Design: "Warm Tactile Ledger Luxury"
+The look borrows from a leather-bound accounting ledger and the precision of modern fintech: a deep forest-green shell, parchment pages edged in brushed brass, Instrument Serif headings, Plus Jakarta Sans for the interface and JetBrains Mono for every naira amount so columns line up. Design tokens live in `tailwind.config.js` and `src/styles.css` as CSS variables, so the dark "leather" and light "parchment" themes share one set of classes.
 
 ## How it works
 
@@ -68,7 +74,7 @@ src/
 │   ├── tax.ts           Nigerian tax figures in one place
 │   └── *.test.ts        unit + property-based tests (fast-check)
 ├── store/           IndexedDB storage and the React hook around it
-└── ui/              React screens
+└── ui/              React + Tailwind screens (quick-sale keypad, passbook journal, tax view)
 ```
 
 ![Reports](docs/screens/reports.jpg)

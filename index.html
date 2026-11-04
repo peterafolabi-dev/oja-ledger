@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Oja Ledger</title>
     <meta name="description" content="Offline double-entry bookkeeping for Nigerian small businesses, with VAT and small-company tax checks." />
-    <meta name="theme-color" content="#14513a" />
+    <meta name="theme-color" content="#051916" />
+    <script>
+      // apply the saved theme before first paint, so there is no flash
+      try { document.documentElement.dataset.theme = localStorage.getItem('oja-theme') === 'light' ? 'light' : 'dark' } catch (e) { document.documentElement.dataset.theme = 'dark' }
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
