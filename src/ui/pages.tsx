@@ -88,7 +88,7 @@ export function TodayPage({ book, onQuickSale, onOpenBook }: { book: Book; onQui
         />
       </section>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1.35fr]">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
         <div className="grid content-start gap-4">
           <section className="leather p-5" aria-label="Money right now">
             <div className="grid grid-cols-2 gap-4">
@@ -460,7 +460,7 @@ export function ReportsPage({ book }: { book: Book }) {
         <p className="mt-5 text-xs text-cream/45">A planning aid, not tax advice. Confirm with a tax professional before filing.</p>
       </section>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="page-card p-6">
           <h3 className="font-serif text-2xl">Profit and loss</h3>
           <p className="mb-3 text-sm text-on-page-mute">{r.label}</p>
