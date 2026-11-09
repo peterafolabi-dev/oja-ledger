@@ -92,10 +92,17 @@ flowchart TB
 
 ## Results
 
-- 24 automated tests: 7 property-based checks running 100–200 generated cases each, plus unit tests for parsing, reports, tax edge cases and storage atomicity
+- 29 automated tests: 4 property-based ledger invariants at 200 generated ledgers each (plus further property checks on money), and unit tests for parsing, reports, tax edge cases, storage atomicity and two-tab safety
 - Strict TypeScript (`strict`, `noUncheckedIndexedAccess`) with no `any`
 - Zero runtime dependencies beyond React; fonts are self-hosted so the app works offline
-- 59 kB of JavaScript after gzip
+- About 68 kB of JavaScript after gzip
+
+## Known limits
+
+- **Tamper-evident, not tamper-proof.** Someone with access to the device could recompute the whole chain. The fingerprint only protects the owner if it is written down or stored somewhere else.
+- **One device is the source of truth.** There is no sync yet.
+- **Browsers can clear site storage.** The app asks for persistent storage and tells the owner whether it was granted, but a CSV export is still the real backup.
+- **Two tabs:** entry numbers are unique keys, so a second tab saving the same number is rejected whole (the chain cannot fork); the other tab reloads and the user re-enters the entry.
 
 ## What I'd build next
 

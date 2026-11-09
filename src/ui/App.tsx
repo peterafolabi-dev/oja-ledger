@@ -385,6 +385,17 @@ function SettingsPage({ book, notice, onDone }: { book: Book; notice: string; on
             </div>
           </section>
           <section className="page-card p-6">
+            <h2 className="font-serif text-2xl">Your book on this device</h2>
+            <p className="mt-1 text-sm text-on-page-mute">
+              {book.storage === 'persisted'
+                ? 'Protected: this browser has agreed not to clear your book to free up space.'
+                : book.storage === 'not-persisted'
+                  ? 'Not protected: this browser may clear your book if the phone runs low on space or the app goes unused for weeks.'
+                  : 'This browser cannot guarantee the book stays on the device.'}{' '}
+              Either way, export a CSV from the journal now and then as a backup.
+            </p>
+          </section>
+          <section className="page-card p-6">
             <h2 className="font-serif text-2xl">Start over</h2>
             <p className="mt-1 text-sm text-on-page-mute">Erase this device’s book and go back to the welcome screen. Export a CSV from the journal first if you need it.</p>
             <button className="btn-danger mt-4" onClick={() => window.confirm('Erase every entry on this device? This cannot be undone.') && book.reset()}>

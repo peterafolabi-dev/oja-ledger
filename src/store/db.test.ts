@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import * as A from '../core/actions'
 import { type Entry, seal, verifyChain } from '../core/ledger'
 import { kobo } from '../core/money'
-import { append, loadAll, wipe } from './db'
+import { BookChangedError, append, loadAll, requestPersistence, wipe } from './db'
 
 const N = (n: number) => kobo(n * 100)
 
@@ -33,5 +33,24 @@ describe('offline storage (IndexedDB)', () => {
     const { entries, meta } = await loadAll()
     expect(entries).toHaveLength(2)
     expect(meta?.count).toBe(2)
+  })
+
+  it('two tabs saving the same entry number cannot fork the chain: the second save is rejected whole', async () => {
+    const j = await chain(3)
+    await append(j.slice(0, 2), { businessName: 'Test', headHash: j[1]!.hash, count: 2 })
+    // tab A and tab B both seal entry #3 from the same starting point, with different content
+    const a = await seal(j.slice(0, 2), A.ownerIn('2026-05-02', N(5), 'cash'))
+    const b = await seal(j.slice(0, 2), A.ownerIn('2026-05-02', N(9), 'cash'))
+    await append([a], { businessName: 'Test', headHash: a.hash, count: 3 })
+    await expect(append([b], { businessName: 'Test', headHash: b.hash, count: 3 })).rejects.toBeInstanceOf(BookChangedError)
+    const { entries, meta } = await loadAll()
+    expect(entries).toHaveLength(3)
+    expect(entries[2]!.hash).toBe(a.hash)
+    expect(meta?.headHash).toBe(a.hash)
+    expect((await verifyChain(entries)).ok).toBe(true)
+  })
+
+  it('reports persistence as unsupported when the browser has no storage API', async () => {
+    expect(await requestPersistence()).toBe('unsupported')
   })
 })

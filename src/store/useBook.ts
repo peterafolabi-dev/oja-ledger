@@ -10,6 +10,7 @@ export interface BookState {
   meta: db.Meta | undefined
   check: ChainCheck | null
   error: string | null
+  storage: db.Persistence
 }
 
 export function todayIso(): string {
@@ -28,20 +29,29 @@ async function fullCheck(entries: Entry[], meta: db.Meta | undefined): Promise<C
 }
 
 export function useBook() {
-  const [s, set] = useState<BookState>({ ready: false, entries: [], meta: undefined, check: null, error: null })
+  const [s, set] = useState<BookState>({ ready: false, entries: [], meta: undefined, check: null, error: null, storage: 'unsupported' })
+
+  const load = useCallback(async (isLive: () => boolean = () => true) => {
+    try {
+      const { entries, meta } = await db.loadAll()
+      const check = await fullCheck(entries, meta)
+      if (isLive()) set((p) => ({ ...p, ready: true, entries, meta, check, error: null }))
+    } catch (e) {
+      if (isLive()) set((p) => ({ ...p, ready: true, error: `Could not open the book on this device: ${(e as Error).message}` }))
+    }
+  }, [])
 
   useEffect(() => {
     let live = true
-    db.loadAll()
-      .then(async ({ entries, meta }) => {
-        const check = await fullCheck(entries, meta)
-        if (live) set({ ready: true, entries, meta, check, error: null })
-      })
-      .catch((e: Error) => live && set((p) => ({ ...p, ready: true, error: `Could not open the book on this device: ${e.message}` })))
+    void load(() => live)
+    void db.requestPersistence().then((storage) => live && set((p) => ({ ...p, storage })))
+    // another tab saved: reload so this tab never works from a stale book
+    const off = db.onChangedElsewhere(() => void load(() => live))
     return () => {
       live = false
+      off()
     }
-  }, [])
+  }, [load])
 
   /** Seals drafts onto the chain and saves them atomically. Returns the new entries. */
   const post = useCallback(
@@ -59,11 +69,16 @@ export function useBook() {
         headHash: journal.at(-1)?.hash ?? '0'.repeat(64),
         count: journal.length,
       }
-      await db.append(added, meta)
+      try {
+        await db.append(added, meta)
+      } catch (e) {
+        if (e instanceof db.BookChangedError) await load()
+        throw e
+      }
       set((p) => ({ ...p, entries: journal, meta, check: { ok: true, checked: journal.length } }))
       return added
     },
-    [s.entries, s.meta],
+    [s.entries, s.meta, load],
   )
 
   const start = useCallback(async (businessName: string, withSample: boolean, pinCode?: string) => {
@@ -71,13 +86,13 @@ export function useBook() {
     const pin: PinRecord | undefined = pinCode ? await makePin(pinCode) : undefined
     const meta: db.Meta = { businessName, headHash: '0'.repeat(64), count: 0, ...(pin ? { pin } : {}) }
     await db.saveMeta(meta)
-    set({ ready: true, entries: [], meta, check: { ok: true, checked: 0 }, error: null })
+    set((p) => ({ ...p, ready: true, entries: [], meta, check: { ok: true, checked: 0 }, error: null }))
     if (withSample) {
       const journal: Entry[] = []
       for (const d of sampleShop(todayIso())) journal.push(await seal(journal, d))
       const m: db.Meta = { ...meta, headHash: journal.at(-1)!.hash, count: journal.length }
       await db.append(journal, m)
-      set({ ready: true, entries: journal, meta: m, check: { ok: true, checked: journal.length }, error: null })
+      set((p) => ({ ...p, ready: true, entries: journal, meta: m, check: { ok: true, checked: journal.length }, error: null }))
     }
   }, [])
 
@@ -94,7 +109,7 @@ export function useBook() {
 
   const reset = useCallback(async () => {
     await db.wipe()
-    set({ ready: true, entries: [], meta: undefined, check: null, error: null })
+    set((p) => ({ ...p, ready: true, entries: [], meta: undefined, check: null, error: null }))
   }, [])
 
   /** Sets, changes or (with null) removes the PIN. */
