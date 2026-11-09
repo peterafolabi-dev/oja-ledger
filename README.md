@@ -30,7 +30,7 @@ Oja Ledger is built for the person at the stall:
 
 | | What it means | How it's enforced |
 |---|---|---|
-| **Double-entry, always** | Every entry moves money from somewhere to somewhere. Debits equal credits. | `validateDraft()` rejects anything that doesn't balance, plus **property-based tests** that throw 800 random trading histories at the engine on every push and check the books still balance. |
+| **Double-entry, always** | Every entry moves money from somewhere to somewhere. Debits equal credits. | `validateDraft()` rejects anything that doesn't balance, plus **property-based tests** that check four ledger invariants against 200 generated trading histories on every push. |
 | **Money is never a float** | ₦0.10 + ₦0.20 is exactly ₦0.30. | All amounts are integer kobo behind a branded `Kobo` type. VAT splitting is tested to never create or lose a kobo, for every amount up to ₦100bn. |
 | **Tamper-evident** | Changing any past entry is detectable. | Each entry stores a **SHA-256 hash** of its contents plus the previous entry's hash, a hash chain. The app re-verifies the whole chain on open and shows a short fingerprint you can give your accountant. |
 | **Append-only** | Nothing is edited or deleted. | Mistakes are fixed with **reversal entries**. A property test proves a reversal returns every account exactly to where it was. |

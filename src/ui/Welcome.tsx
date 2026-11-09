@@ -3,7 +3,7 @@ import { BadgeAbacus, BadgeFingerprint, BadgeScales, BadgeTaxSeal, Guilloche } f
 
 const FEATURES = [
   { title: 'No internet needed', body: 'Everything is saved on this device. Install it from your browser menu like an app.', Badge: BadgeAbacus },
-  { title: 'Books that cannot go wrong', body: 'Every entry is double-entry. Debits always equal credits, checked by 800 random test histories.', Badge: BadgeScales },
+  { title: 'Books that cannot go wrong', body: 'Every entry is double-entry. Debits always equal credits, checked against 200 generated test histories.', Badge: BadgeScales },
   { title: 'Nothing can be secretly changed', body: 'Each entry is sealed with a SHA-256 fingerprint of the one before it.', Badge: BadgeFingerprint },
   { title: 'Ready for the 2026 tax rules', body: '7.5% VAT returns and the 0% small-company check, under the Nigeria Tax Act 2025.', Badge: BadgeTaxSeal },
 ]
